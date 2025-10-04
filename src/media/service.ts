@@ -5,9 +5,52 @@ const BUCKET = process.env.DO_SPACES_BUCKET!;
 const BUCKET_URL = process.env.BUCKET_URL!;
 
 export class MediaService {
+  // Define allowed file types
+  private static readonly ALLOWED_IMAGE_TYPES = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/svg+xml'
+  ];
+
+  private static readonly ALLOWED_VIDEO_TYPES = [
+    'video/mp4',
+    'video/mpeg',
+    'video/quicktime',
+    'video/x-msvideo', // .avi
+    'video/x-ms-wmv',  // .wmv
+    'video/webm',
+    'video/ogg'
+  ];
+
+  // Validate file type
+  private static isValidFileType(file: File): boolean {
+    const isImage = this.ALLOWED_IMAGE_TYPES.includes(file.type);
+    const isVideo = this.ALLOWED_VIDEO_TYPES.includes(file.type);
+    return isImage || isVideo;
+  }
+
+  // Get file category
+  private static getFileCategory(file: File): 'image' | 'video' | 'unknown' {
+    if (this.ALLOWED_IMAGE_TYPES.includes(file.type)) return 'image';
+    if (this.ALLOWED_VIDEO_TYPES.includes(file.type)) return 'video';
+    return 'unknown';
+  }
+
   // Upload single file
   static async uploadSingle(file: File, folder: string): Promise<string> {
     try {
+      // Validate file type
+      if (!this.isValidFileType(file)) {
+        const allowedTypes = [...this.ALLOWED_IMAGE_TYPES, ...this.ALLOWED_VIDEO_TYPES];
+        throw new Error(`Invalid file type: ${file.type}. Allowed types: ${allowedTypes.join(', ')}`);
+      }
+
+      console.log(`Uploading ${this.getFileCategory(file)}: ${file.name} (${file.type})`);
+
       const buffer = Buffer.from(await file.arrayBuffer());
 
       // Sanitize filename: remove spaces, special characters, and make it URL-safe
@@ -37,7 +80,28 @@ export class MediaService {
 
   // Upload multiple files
   static async uploadMultiple(files: File[], folder: string): Promise<string[]> {
+    // Validate all files first
+    const invalidFiles = files.filter(file => !this.isValidFileType(file));
+
+    if (invalidFiles.length > 0) {
+      const invalidFileInfo = invalidFiles.map(file => `${file.name} (${file.type})`).join(', ');
+      throw new Error(`Invalid file types found: ${invalidFileInfo}. Only images and videos are allowed.`);
+    }
+
+    console.log(`Uploading ${files.length} files to folder: ${folder}`);
+    files.forEach(file => {
+      console.log(`- ${file.name} (${file.type}) - ${this.getFileCategory(file)}`);
+    });
+
     return Promise.all(files.map((file) => this.uploadSingle(file, folder)));
+  }
+
+  // Get allowed file types for API documentation
+  static getAllowedFileTypes(): { images: string[], videos: string[] } {
+    return {
+      images: [...this.ALLOWED_IMAGE_TYPES],
+      videos: [...this.ALLOWED_VIDEO_TYPES]
+    };
   }
 
   // Get public URL of a file

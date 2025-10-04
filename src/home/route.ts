@@ -10,17 +10,40 @@ export const homeRoutes = (app: Elysia) =>
       // Create a new home with images
       .post("/create", async ({ body }) => {
         try {
-          const { ownerId, address, files } = body as {
-            ownerId: number;
-            address: string;
-            files: File[];
-          };
+          console.log("Home creation request body:", body);
+
+          const requestBody = body as any;
+          const ownerId = parseInt(requestBody.ownerId);
+          const address = requestBody.address;
+
+          // Handle both 'file' and 'files' field names
+          let files = requestBody.files || requestBody.file;
+
+          // If single file, convert to array
+          if (files && !Array.isArray(files)) {
+            files = [files];
+          }
+
+          console.log("Parsed data:", {
+            ownerId,
+            address,
+            filesCount: files ? files.length : 0,
+            files: files ? files.map((f: any) => ({ name: f.name, type: f.type })) : []
+          });
 
           if (!ownerId || !address) {
             return { success: false, error: "ownerId and address are required" };
           }
 
-          const imageUrls = files ? await MediaService.uploadMultiple(files, "homes") : [];
+          let imageUrls: string[] = [];
+
+          if (files && files.length > 0) {
+            console.log(`Uploading ${files.length} files...`);
+            imageUrls = await MediaService.uploadMultiple(files, "homes");
+            console.log("Upload successful, URLs:", imageUrls);
+          } else {
+            console.log("No files to upload");
+          }
 
           const [newHome] = await db
             .insert(homes)
