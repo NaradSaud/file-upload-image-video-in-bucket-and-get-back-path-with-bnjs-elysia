@@ -36,10 +36,12 @@ export const homeRoutes = (app: Elysia) =>
           }
 
           let imageUrls: string[] = [];
+          let uploadResults: any[] = [];
 
           if (files && files.length > 0) {
-            console.log(`Uploading ${files.length} files...`);
-            imageUrls = await MediaService.uploadMultiple(files, "homes");
+            console.log(`Uploading ${files.length} files with thumbnails...`);
+            uploadResults = await MediaService.uploadMultipleWithThumbnails(files, "homes");
+            imageUrls = uploadResults.map(result => result.url);
             console.log("Upload successful, URLs:", imageUrls);
           } else {
             console.log("No files to upload");
@@ -55,7 +57,13 @@ export const homeRoutes = (app: Elysia) =>
             data: {
               home: newHome,
               imageCount: imageUrls.length,
-              imageUrls
+              imageUrls,
+              files: uploadResults.map(result => ({
+                url: result.url,
+                thumbnails: result.thumbnails,
+                type: result.type,
+                metadata: result.metadata
+              }))
             }
           };
         } catch (error) {

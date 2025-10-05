@@ -10,13 +10,30 @@ export const userRoutes = (app: Elysia) =>
       // Register a new user
       .post("/register", async ({ body }) => {
         try {
-          const { name, file } = body as { name: string; file?: File };
+          const { name, file, generateThumbnails } = body as {
+            name: string;
+            file?: File;
+            generateThumbnails?: string | boolean
+          };
 
           if (!name) {
             return { success: false, error: "Name is required" };
           }
 
-          const imageUrl = file ? await MediaService.uploadSingle(file, "users") : null;
+          // Check if thumbnails are requested
+          const shouldGenerateThumbnails = generateThumbnails === 'true' || generateThumbnails === true;
+
+          let uploadResult;
+          let imageUrl = null;
+
+          if (file) {
+            if (shouldGenerateThumbnails) {
+              uploadResult = await MediaService.uploadSingleWithThumbnails(file, "users");
+              imageUrl = uploadResult.url;
+            } else {
+              imageUrl = await MediaService.uploadSingle(file, "users");
+            }
+          }
 
           const [newUser] = await db
             .insert(people)
@@ -27,7 +44,12 @@ export const userRoutes = (app: Elysia) =>
             success: true,
             data: {
               user: newUser,
-              hasProfileImage: !!imageUrl
+              hasProfileImage: !!imageUrl,
+              ...(uploadResult && {
+                thumbnails: uploadResult.thumbnails,
+                metadata: uploadResult.metadata,
+                fileType: uploadResult.type
+              })
             }
           };
         } catch (error) {

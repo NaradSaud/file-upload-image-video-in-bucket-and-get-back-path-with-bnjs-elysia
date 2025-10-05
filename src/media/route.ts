@@ -50,6 +50,63 @@ export const mediaRoutes = (app: Elysia) =>
         }
       })
 
+      // Upload single file with thumbnails
+      .post("/upload-with-thumbnails", async ({ body }) => {
+        try {
+          const { file, folder } = body as { file: File; folder: string };
+
+          if (!file) {
+            return { success: false, error: "No file provided" };
+          }
+
+          if (!folder) {
+            return { success: false, error: "Folder is required" };
+          }
+
+          const result = await MediaService.uploadSingleWithThumbnails(file, folder);
+          return { success: true, ...result };
+        } catch (error) {
+          console.error("Single upload with thumbnails error:", error);
+          const errorMessage = error instanceof Error ? error.message : "File upload with thumbnails failed";
+          return { success: false, error: errorMessage };
+        }
+      })
+
+      // Upload multiple files with thumbnails
+      .post("/upload-multiple-with-thumbnails", async ({ body }) => {
+        try {
+          console.log("Multiple upload with thumbnails request body:", body);
+          const { files, folder } = body as { files: File[]; folder: string };
+
+          if (!files || !Array.isArray(files) || files.length === 0) {
+            return { success: false, error: "No files provided or files is not an array" };
+          }
+
+          if (!folder) {
+            return { success: false, error: "Folder is required" };
+          }
+
+          console.log(`Uploading ${files.length} files with thumbnails to folder: ${folder}`);
+          const results = await MediaService.uploadMultipleWithThumbnails(files, folder);
+
+          return {
+            success: true,
+            files: results,
+            count: results.length,
+            summary: {
+              total: results.length,
+              withThumbnails: results.filter(r => r.thumbnails).length,
+              images: results.filter(r => r.type === 'image').length,
+              videos: results.filter(r => r.type === 'video').length
+            }
+          };
+        } catch (error) {
+          console.error("Multiple upload with thumbnails error:", error);
+          const errorMessage = error instanceof Error ? error.message : "Multiple file upload with thumbnails failed";
+          return { success: false, error: errorMessage };
+        }
+      })
+
       // Get allowed file types
       .get("/allowed-types", async () => {
         return {
